@@ -1,25 +1,50 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Simulador de Tarjeta de Crédito</title>
-    <!-- jsPDF funciona offline desde CDN cacheado; si no hay internet, el PDF se deshabilita gracefully -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <style>
+        /* ══════════════════════════════════════════
+           VARIABLES — MODO OSCURO (default)
+        ══════════════════════════════════════════ */
         :root {
-            --bg: #0d0f14;
-            --surface: #161922;
-            --surface2: #1e2230;
-            --border: rgba(255,255,255,0.07);
-            --accent: #3b82f6;
-            --accent2: #06b6d4;
-            --accent-glow: rgba(59,130,246,0.25);
-            --text: #e8eaf0;
-            --text-muted: #6b7280;
-            --success: #10b981;
-            --warning: #f59e0b;
+            --bg:           #0d0f14;
+            --surface:      #161922;
+            --surface2:     #1e2230;
+            --border:       rgba(255,255,255,0.07);
+            --accent:       #3b82f6;
+            --accent2:      #06b6d4;
+            --accent-glow:  rgba(59,130,246,0.25);
+            --text:         #e8eaf0;
+            --text-muted:   #6b7280;
+            --success:      #10b981;
+            --warning:      #f59e0b;
+            --shadow:       rgba(0,0,0,0.4);
+            --toggle-bg:    #1e2230;
+            --toggle-icon:  '☀️';
+        }
+
+        /* ══════════════════════════════════════════
+           VARIABLES — MODO CLARO
+        ══════════════════════════════════════════ */
+        [data-theme="light"] {
+            --bg:           #f0f4f8;
+            --surface:      #ffffff;
+            --surface2:     #f1f5f9;
+            --border:       rgba(0,0,0,0.09);
+            --accent:       #1d4ed8;
+            --accent2:      #0891b2;
+            --accent-glow:  rgba(29,78,216,0.15);
+            --text:         #0f172a;
+            --text-muted:   #64748b;
+            --success:      #059669;
+            --warning:      #d97706;
+            --shadow:       rgba(0,0,0,0.08);
+            --toggle-bg:    #e2e8f0;
+            --toggle-icon:  '🌙';
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -30,6 +55,7 @@
             color: var(--text);
             min-height: 100vh;
             overflow-x: hidden;
+            transition: background 0.3s, color 0.3s;
         }
 
         body::before {
@@ -37,8 +63,8 @@
             position: fixed;
             inset: 0;
             background:
-                radial-gradient(ellipse 80% 60% at 10% 0%, rgba(59,130,246,0.08) 0%, transparent 60%),
-                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(6,182,212,0.06) 0%, transparent 50%);
+                radial-gradient(ellipse 80% 60% at 10% 0%, rgba(59,130,246,0.06) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(6,182,212,0.04) 0%, transparent 50%);
             pointer-events: none;
             z-index: 0;
         }
@@ -48,30 +74,58 @@
             z-index: 1;
             max-width: 800px;
             margin: 0 auto;
-            padding: 32px 16px 80px;
+            padding: 28px 16px 80px;
         }
 
+        /* ── TOGGLE MODO ── */
+        .theme-toggle {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 100;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 12px var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.25s;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .theme-toggle:active { transform: scale(0.9); }
+
         /* ── HEADER ── */
-        header { text-align: center; margin-bottom: 32px; }
+        header { text-align: center; margin-bottom: 28px; padding-top: 8px; }
 
         .badge {
             display: inline-block;
             font-family: monospace;
             font-size: 10px;
-            letter-spacing: 0.15em;
+            letter-spacing: 0.14em;
             color: var(--accent2);
             background: rgba(6,182,212,0.08);
             border: 1px solid rgba(6,182,212,0.2);
             padding: 4px 12px;
             border-radius: 20px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
         h1 {
-            font-size: clamp(22px, 6vw, 34px);
+            font-size: clamp(20px, 5.5vw, 32px);
             font-weight: 700;
             letter-spacing: -0.02em;
             line-height: 1.2;
+            color: var(--text);
+        }
+
+        [data-theme="dark"] h1 {
             background: linear-gradient(135deg, #fff 30%, #93c5fd 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -79,7 +133,7 @@
         }
 
         .subtitle {
-            margin-top: 8px;
+            margin-top: 6px;
             color: var(--text-muted);
             font-size: 13px;
         }
@@ -89,9 +143,11 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 18px;
-            padding: 24px 20px;
+            padding: 22px 18px;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 4px 24px var(--shadow);
+            transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
         }
 
         .card::before {
@@ -99,36 +155,36 @@
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent);
+            background: linear-gradient(90deg, transparent, rgba(59,130,246,0.35), transparent);
         }
 
         /* ── FORM ── */
         .form-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px 20px;
+            gap: 14px 18px;
         }
 
         .form-group { display: flex; flex-direction: column; gap: 6px; }
         .form-group.full { grid-column: 1 / -1; }
 
         label {
-            font-size: 11px;
+            font-size: 10.5px;
             font-weight: 600;
             letter-spacing: 0.06em;
             color: var(--text-muted);
             text-transform: uppercase;
         }
 
-        input, select {
+        input {
             background: var(--surface2);
             border: 1px solid var(--border);
             border-radius: 10px;
             color: var(--text);
             font-family: monospace;
             font-size: 14px;
-            padding: 12px 14px;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            padding: 11px 13px;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.3s;
             width: 100%;
             outline: none;
             -webkit-appearance: none;
@@ -140,10 +196,15 @@
         }
 
         input::placeholder { color: var(--text-muted); font-family: sans-serif; font-size: 12px; }
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: var(--cal-filter, invert(0.5));
+            cursor: pointer;
+        }
+        [data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: none;
+        }
 
-        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
-
-        /* ── SECTION SEPARATOR ── */
+        /* ── SECTION TITLE ── */
         .section-title {
             font-size: 10px;
             font-weight: 600;
@@ -156,7 +217,6 @@
             gap: 10px;
             margin-top: 4px;
         }
-
         .section-title::after {
             content: '';
             flex: 1;
@@ -165,13 +225,14 @@
         }
 
         /* ── BUTTONS ── */
-        .actions { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+        .actions { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
 
         .btn {
             display: inline-flex;
             align-items: center;
+            justify-content: center;
             gap: 7px;
-            padding: 13px 22px;
+            padding: 13px 20px;
             border-radius: 10px;
             font-size: 14px;
             font-weight: 600;
@@ -179,30 +240,26 @@
             cursor: pointer;
             transition: all 0.2s;
             flex: 1;
-            justify-content: center;
-            min-width: 140px;
+            min-width: 130px;
         }
 
         .btn-primary {
             background: var(--accent);
             color: #fff;
-            box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+            box-shadow: 0 4px 16px rgba(59,130,246,0.3);
         }
-
-        .btn-primary:active { opacity: 0.85; transform: scale(0.98); }
+        .btn-primary:active { opacity: 0.82; transform: scale(0.97); }
 
         .btn-outline {
             background: transparent;
             color: var(--text);
             border: 1px solid var(--border);
         }
-
         .btn-outline:active { opacity: 0.7; }
 
-        /* spinner */
         .spinner {
             width: 16px; height: 16px;
-            border: 2px solid rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.25);
             border-top-color: #fff;
             border-radius: 50%;
             animation: spin 0.7s linear infinite;
@@ -219,44 +276,52 @@
             background: rgba(239,68,68,0.08);
             border: 1px solid rgba(239,68,68,0.2);
             border-radius: 10px;
-            color: #fca5a5;
+            color: #ef4444;
             font-size: 13px;
             display: none;
         }
+        [data-theme="dark"] .error-msg { color: #fca5a5; }
         .error-msg.show { display: block; }
 
         /* ── RESULTS ── */
-        #resultSection { margin-top: 28px; animation: fadeUp 0.35s ease; }
-
+        #resultSection { margin-top: 24px; animation: fadeUp 0.35s ease; }
         @keyframes fadeUp {
             from { opacity: 0; transform: translateY(12px); }
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* Summary */
+        .results-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            color: var(--text);
+        }
+
+        /* Summary cards */
         .summary-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         .summary-card {
-            background: var(--surface2);
+            background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 14px 16px;
+            padding: 13px 15px;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 2px 10px var(--shadow);
+            transition: background 0.3s;
         }
 
         .summary-card::after {
             content: '';
             position: absolute;
             bottom: 0; left: 0; right: 0;
-            height: 2px;
+            height: 2.5px;
         }
-
         .summary-card.blue::after  { background: var(--accent); }
         .summary-card.cyan::after  { background: var(--accent2); }
         .summary-card.green::after { background: var(--success); }
@@ -268,13 +333,13 @@
             letter-spacing: 0.06em;
             color: var(--text-muted);
             text-transform: uppercase;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }
 
         .summary-value {
             font-family: monospace;
-            font-size: 15px;
-            font-weight: 500;
+            font-size: 14px;
+            font-weight: 600;
             color: var(--text);
             word-break: break-all;
         }
@@ -285,58 +350,72 @@
             border-radius: 12px;
             border: 1px solid var(--border);
             -webkit-overflow-scrolling: touch;
+            box-shadow: 0 2px 10px var(--shadow);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
-            min-width: 560px;
+            font-size: 11.5px;
+            min-width: 540px;
         }
 
         thead th {
             background: var(--surface2);
-            padding: 11px 12px;
+            padding: 10px 11px;
             text-align: right;
             font-size: 10px;
             font-weight: 600;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.05em;
             color: var(--text-muted);
             text-transform: uppercase;
             white-space: nowrap;
             border-bottom: 1px solid var(--border);
         }
-
         thead th:first-child { text-align: center; }
         thead th:nth-child(2) { text-align: left; }
 
-        tbody tr { border-bottom: 1px solid var(--border); }
+        tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
         tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(59,130,246,0.04); }
 
         tbody td {
-            padding: 10px 12px;
+            padding: 9px 11px;
             text-align: right;
             font-family: monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        tbody td:first-child { text-align: center; }
+        tbody td:nth-child(2) {
+            text-align: left;
+            font-family: sans-serif;
             font-size: 11.5px;
-            color: #d1d5db;
+            color: var(--text);
+            font-weight: 500;
+        }
+        .td-total {
+            color: var(--accent) !important;
+            font-weight: 700 !important;
         }
 
-        tbody td:first-child { text-align: center; color: var(--text-muted); }
-        tbody td:nth-child(2) { text-align: left; font-family: sans-serif; font-size: 12px; color: var(--text); font-weight: 500; }
-        .td-total { color: var(--text) !important; font-weight: 700 !important; }
-
-        .results-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
-
-        /* hint scroll */
         .scroll-hint {
             text-align: center;
             font-size: 11px;
             color: var(--text-muted);
-            margin-bottom: 8px;
+            margin-bottom: 7px;
+            opacity: 0.7;
         }
     </style>
 </head>
 <body>
+
+<!-- Botón modo claro/oscuro -->
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
+
 <div class="wrapper">
 
     <header>
@@ -397,18 +476,18 @@
                 <span class="btn-text">⚡ Simular</span>
             </button>
             <button class="btn btn-outline" id="btnDescargar" onclick="descargarPDF()" style="display:none;">
-                📥 PDF
+                📥 Descargar PDF
             </button>
         </div>
 
         <div class="error-msg" id="mensajeError"></div>
     </div>
 
-    <!-- RESULTS -->
+    <!-- RESULTADOS -->
     <div id="resultSection" style="display:none;">
         <div class="results-title">Detalle de la simulación</div>
         <div class="summary-grid" id="summaryGrid"></div>
-        <div class="scroll-hint">← Desliza la tabla horizontalmente →</div>
+        <p class="scroll-hint">← Desliza la tabla →</p>
         <div class="table-wrap">
             <table>
                 <thead>
@@ -432,14 +511,36 @@
 
 <script>
 // ════════════════════════════════════════════════
-//  TODA LA LÓGICA DE CÁLCULO EN JS PURO
-//  (Equivalente al CalculadoraCreditoService.java)
+//  MODO CLARO / OSCURO
 // ════════════════════════════════════════════════
+const html = document.documentElement;
+const toggleBtn = document.getElementById('themeToggle');
 
+function toggleTheme() {
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    toggleBtn.textContent = isDark ? '🌙' : '☀️';
+    try { localStorage.setItem('theme', isDark ? 'light' : 'dark'); } catch(e) {}
+}
+
+// Restaurar preferencia guardada
+(function() {
+    let saved = null;
+    try { saved = localStorage.getItem('theme'); } catch(e) {}
+    if (saved) {
+        html.setAttribute('data-theme', saved);
+        toggleBtn.textContent = saved === 'dark' ? '☀️' : '🌙';
+    } else {
+        toggleBtn.textContent = '☀️'; // default dark → muestra opción de ir a claro
+    }
+})();
+
+// ════════════════════════════════════════════════
+//  LÓGICA DE CÁLCULO (sin backend)
+// ════════════════════════════════════════════════
 let lastResult = null;
 let lastParams = {};
 
-// ── Helpers de formato ───────────────────────────
 function formatCOP(value) {
     return new Intl.NumberFormat('es-CO', {
         style: 'currency',
@@ -449,177 +550,133 @@ function formatCOP(value) {
     }).format(Math.round(value));
 }
 
-function parseColombianNumber(str) {
+function parseNum(str) {
     if (!str || str.trim() === '') return 0;
-    // Acepta: 9.000.000 / 9,000,000 / 9000000 / 9000000.50
-    let cleaned = str.replace(/\$/g, '').trim();
-    // Si tiene puntos como separador de miles (formato colombiano): 9.000.000
-    if ((cleaned.match(/\./g) || []).length > 1) {
-        cleaned = cleaned.replace(/\./g, '');
-    }
-    cleaned = cleaned.replace(/,/g, '.');
-    return parseFloat(cleaned);
+    let s = str.replace(/\$/g, '').trim();
+    if ((s.match(/\./g) || []).length > 1) s = s.replace(/\./g, '');
+    s = s.replace(/,/g, '.');
+    return parseFloat(s);
 }
 
-// ── Utilidad de fechas ───────────────────────────
+const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
+               'JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
 function addMonths(dateStr, months) {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    const d = new Date(year, month - 1 + months, day);
-    // Evitar desbordamiento de día (ej: 31 enero + 1 mes = 28/29 feb)
-    if (d.getDate() !== day) d.setDate(0);
-    return d;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1 + months, d);
+    if (dt.getDate() !== d) dt.setDate(0);
+    return dt;
 }
 
-function diffDays(startStr, endStr) {
-    const [y1,m1,d1] = startStr.split('-').map(Number);
-    const [y2,m2,d2] = endStr.split('-').map(Number);
-    const a = new Date(y1, m1-1, d1);
-    const b = new Date(y2, m2-1, d2);
-    return Math.round((b - a) / (1000 * 60 * 60 * 24));
+function diffDays(a, b) {
+    const d1 = new Date(a), d2 = new Date(b);
+    return Math.round((d2 - d1) / 86400000);
 }
 
-const MESES_ES = [
-    'ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
-    'JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'
-];
-
-// ── Motor de cálculo ─────────────────────────────
-function calcularCuotas(valorCompra, tasaMensual, cuotas, fechaInicio, fechaCorte, cuotaManejo) {
-    const diasPrimerPeriodo = diffDays(fechaInicio, fechaCorte);
-    const interesPrimerPeriodo = (valorCompra * tasaMensual) * (diasPrimerPeriodo / 30.0);
+function calcularCuotas(valorCompra, tasaMensual, numCuotas, fechaInicio, fechaCorte, cuotaManejo) {
+    const diasPrimero = diffDays(fechaInicio, fechaCorte);
+    const interesPrimero = (valorCompra * tasaMensual) * (diasPrimero / 30.0);
 
     let saldo = valorCompra;
-    const abonoCapital = valorCompra / cuotas;
-    let totalInteres = 0;
-    let totalPagado = 0;
-    let totalManejo = 0;
-
+    const abonoCapital = valorCompra / numCuotas;
+    let totalInteres = 0, totalPagado = 0, totalManejo = 0;
     const detalle = [];
 
-    for (let i = 1; i <= cuotas; i++) {
-        let interes;
-        if (cuotas === 1) {
-            interes = 0;
-        } else {
-            interes = (i === 1) ? interesPrimerPeriodo : saldo * tasaMensual;
-        }
-
+    for (let i = 1; i <= numCuotas; i++) {
+        let interes = numCuotas === 1 ? 0 : (i === 1 ? interesPrimero : saldo * tasaMensual);
         const cuota = abonoCapital + interes;
-        const totalCuotaConManejo = cuota + cuotaManejo;
+        const total = cuota + cuotaManejo;
         saldo -= abonoCapital;
 
         totalInteres += interes;
-        totalPagado  += totalCuotaConManejo;
+        totalPagado  += total;
         totalManejo  += cuotaManejo;
 
-        // Fecha: mes siguiente al corte + (i meses)
-        const fechaCuota = addMonths(fechaCorte, i);
-        const nombreMes  = MESES_ES[fechaCuota.getMonth()];
-        const anio        = fechaCuota.getFullYear();
-
+        const fc = addMonths(fechaCorte, i);
         detalle.push({
             numero:       i,
-            mesAnio:      nombreMes + ' ' + anio,
+            mesAnio:      MESES[fc.getMonth()] + ' ' + fc.getFullYear(),
             valorCuota:   formatCOP(cuota),
             interes:      formatCOP(interes),
             abonoCapital: formatCOP(abonoCapital),
             cuotaManejo:  formatCOP(cuotaManejo),
-            totalCuota:   formatCOP(totalCuotaConManejo),
+            totalCuota:   formatCOP(total),
             saldoRestante:formatCOP(Math.max(saldo, 0))
         });
     }
 
     return {
-        cuotas:          detalle,
-        totalPagado:     formatCOP(totalPagado),
-        totalIntereses:  formatCOP(totalInteres),
-        totalCuotaManejo:formatCOP(totalManejo)
+        cuotas:           detalle,
+        totalPagado:      formatCOP(totalPagado),
+        totalIntereses:   formatCOP(totalInteres),
+        totalCuotaManejo: formatCOP(totalManejo)
     };
 }
 
-// ── Validar inputs ───────────────────────────────
-function validar(campos) {
-    if (!campos.valorCompra || isNaN(campos.valorCompraNum) || campos.valorCompraNum <= 0)
-        return 'El valor de la compra es inválido.';
-    if (!campos.tasaPactada || isNaN(campos.tasaMensual) || campos.tasaMensual <= 0)
-        return 'La tasa mensual pactada es inválida.';
-    if (!campos.tasaEA || isNaN(campos.tasaEANum) || campos.tasaEANum <= 0)
-        return 'La tasa efectiva anual es inválida.';
-    if (!campos.cuotas || campos.cuotas <= 0)
-        return 'El número de cuotas debe ser mayor a 0.';
-    if (!campos.fechaInicio)
-        return 'La fecha de inicio es obligatoria.';
-    if (!campos.fechaCorte)
-        return 'La fecha de corte es obligatoria.';
-    if (campos.fechaCorte <= campos.fechaInicio)
-        return 'La fecha de corte debe ser posterior a la fecha de inicio.';
-    return null;
-}
-
-// ── Simular ──────────────────────────────────────
 function simularCredito() {
     const errDiv = document.getElementById('mensajeError');
     errDiv.classList.remove('show');
-    errDiv.textContent = '';
 
-    const campos = {
-        valorCompra:    document.getElementById('valorCompra').value.trim(),
-        tasaPactada:    document.getElementById('tasaPactada').value.trim(),
-        tasaEA:         document.getElementById('tasaEA').value.trim(),
-        cuotas:         parseInt(document.getElementById('cuotas').value),
-        fechaInicio:    document.getElementById('fechaInicio').value,
-        fechaCorte:     document.getElementById('fechaCorte').value,
-        cuotaManejo:    document.getElementById('cuotaManejo').value.trim(),
-    };
+    const valorCompraStr = document.getElementById('valorCompra').value.trim();
+    const tasaPactadaStr = document.getElementById('tasaPactada').value.trim();
+    const tasaEAStr      = document.getElementById('tasaEA').value.trim();
+    const cuotasVal      = parseInt(document.getElementById('cuotas').value);
+    const fechaInicio    = document.getElementById('fechaInicio').value;
+    const fechaCorte     = document.getElementById('fechaCorte').value;
+    const cuotaManejoStr = document.getElementById('cuotaManejo').value.trim();
 
-    campos.valorCompraNum = parseColombianNumber(campos.valorCompra);
-    campos.tasaMensual    = parseFloat(campos.tasaPactada.replace(',', '.')) / 100;
-    campos.tasaEANum      = parseFloat(campos.tasaEA.replace(',', '.'));
+    const valorCompra  = parseNum(valorCompraStr);
+    const tasaMensual  = parseFloat(tasaPactadaStr.replace(',', '.')) / 100;
+    const tasaEA       = parseFloat(tasaEAStr.replace(',', '.'));
+    const cuotaManejo  = parseNum(cuotaManejoStr);
 
-    const error = validar(campos);
-    if (error) {
-        errDiv.textContent = '❌ ' + error;
-        errDiv.classList.add('show');
-        return;
-    }
-
-    const cuotaManejo = campos.cuotaManejo ? parseColombianNumber(campos.cuotaManejo) : 0;
+    // Validaciones
+    if (!valorCompraStr || isNaN(valorCompra) || valorCompra <= 0)
+        return mostrarError('El valor de la compra es inválido.');
+    if (!tasaPactadaStr || isNaN(tasaMensual) || tasaMensual <= 0)
+        return mostrarError('La tasa mensual pactada es inválida.');
+    if (!tasaEAStr || isNaN(tasaEA) || tasaEA <= 0)
+        return mostrarError('La tasa efectiva anual es inválida.');
+    if (!cuotasVal || cuotasVal <= 0)
+        return mostrarError('El número de cuotas debe ser mayor a 0.');
+    if (!fechaInicio)
+        return mostrarError('La fecha de inicio es obligatoria.');
+    if (!fechaCorte)
+        return mostrarError('La fecha de corte es obligatoria.');
+    if (fechaCorte <= fechaInicio)
+        return mostrarError('La fecha de corte debe ser posterior a la fecha de inicio.');
 
     lastParams = {
-        valorCompra: formatCOP(campos.valorCompraNum),
-        tasaMensual: campos.tasaPactada + '%',
-        tasaEA:      campos.tasaEA + '%',
-        cuotas:      campos.cuotas,
+        valorCompra: formatCOP(valorCompra),
+        tasaMensual: tasaPactadaStr + '%',
+        tasaEA:      tasaEAStr + '%',
+        cuotas:      cuotasVal,
         cuotaManejo: formatCOP(cuotaManejo),
-        fechaInicio: campos.fechaInicio,
-        fechaCorte:  campos.fechaCorte,
+        fechaInicio,
+        fechaCorte
     };
 
     const btn = document.getElementById('btnSimular');
     btn.classList.add('loading');
 
-    // setTimeout para que el spinner se vea antes del cálculo
     setTimeout(() => {
         try {
-            lastResult = calcularCuotas(
-                campos.valorCompraNum,
-                campos.tasaMensual,
-                campos.cuotas,
-                campos.fechaInicio,
-                campos.fechaCorte,
-                cuotaManejo
-            );
+            lastResult = calcularCuotas(valorCompra, tasaMensual, cuotasVal, fechaInicio, fechaCorte, cuotaManejo);
             mostrarResultado(lastResult);
-        } catch (e) {
-            errDiv.textContent = '❌ Error en el cálculo: ' + e.message;
-            errDiv.classList.add('show');
+        } catch(e) {
+            mostrarError('Error en el cálculo: ' + e.message);
         } finally {
             btn.classList.remove('loading');
         }
     }, 50);
 }
 
-// ── Mostrar resultados ───────────────────────────
+function mostrarError(msg) {
+    const errDiv = document.getElementById('mensajeError');
+    errDiv.textContent = '❌ ' + msg;
+    errDiv.classList.add('show');
+}
+
 function mostrarResultado(data) {
     document.getElementById('summaryGrid').innerHTML = `
         <div class="summary-card blue">
@@ -635,7 +692,7 @@ function mostrarResultado(data) {
             <div class="summary-value">${data.totalCuotaManejo}</div>
         </div>
         <div class="summary-card green">
-            <div class="summary-label">Número de cuotas</div>
+            <div class="summary-label">N.° cuotas</div>
             <div class="summary-value">${data.cuotas.length}</div>
         </div>
     `;
@@ -662,10 +719,13 @@ function mostrarResultado(data) {
     document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// ── PDF con jsPDF ────────────────────────────────
+// ════════════════════════════════════════════════
+//  PDF CON jsPDF
+// ════════════════════════════════════════════════
 function descargarPDF() {
-    if (!lastResult || typeof window.jspdf === 'undefined') {
-        alert('El PDF no está disponible en este momento. Verifica tu conexión a internet para cargar la librería de PDF.');
+    if (!lastResult) return;
+    if (typeof window.jspdf === 'undefined') {
+        alert('La librería de PDF no está cargada. Verifica tu conexión a internet.');
         return;
     }
 
@@ -711,13 +771,13 @@ function descargarPDF() {
     y += 4;
 
     const params = [
-        ['Valor de la compra',     lastParams.valorCompra],
-        ['Tasa mensual pactada',   lastParams.tasaMensual],
-        ['Tasa EA facturada',      lastParams.tasaEA],
-        ['Numero de cuotas',       String(lastParams.cuotas)],
-        ['Cuota de manejo mensual',lastParams.cuotaManejo],
-        ['Fecha de inicio',        lastParams.fechaInicio],
-        ['Fecha de corte',         lastParams.fechaCorte],
+        ['Valor de la compra',      lastParams.valorCompra],
+        ['Tasa mensual pactada',    lastParams.tasaMensual],
+        ['Tasa EA facturada',       lastParams.tasaEA],
+        ['Numero de cuotas',        String(lastParams.cuotas)],
+        ['Cuota de manejo mensual', lastParams.cuotaManejo],
+        ['Fecha de inicio',         lastParams.fechaInicio],
+        ['Fecha de corte',          lastParams.fechaCorte],
     ];
 
     const boxW = (W - 28) / 4;
@@ -753,9 +813,9 @@ function descargarPDF() {
     y += 4;
 
     const summary = [
-        { label: 'TOTAL PAGADO',        value: lastResult.totalPagado,       color: azul  },
-        { label: 'TOTAL INTERESES',     value: lastResult.totalIntereses,    color: cyan  },
-        { label: 'TOTAL CUOTA MANEJO',  value: lastResult.totalCuotaManejo,  color: ambar },
+        { label: 'TOTAL PAGADO',        value: lastResult.totalPagado,        color: azul  },
+        { label: 'TOTAL INTERESES',     value: lastResult.totalIntereses,     color: cyan  },
+        { label: 'TOTAL CUOTA MANEJO',  value: lastResult.totalCuotaManejo,   color: ambar },
         { label: 'N. CUOTAS',           value: String(lastResult.cuotas.length), color: verde },
     ];
 
@@ -785,15 +845,14 @@ function descargarPDF() {
     doc.text('TABLA DE AMORTIZACION', 14, y);
     y += 3;
 
-    const head = [['#', 'Mes / Año', 'Cuota (cap+int)', 'Interes', 'Abono Capital', 'Cuota Manejo', 'Total a Pagar', 'Saldo Restante']];
+    const head = [['#','Mes / Año','Cuota (cap+int)','Interes','Abono Capital','Cuota Manejo','Total a Pagar','Saldo Restante']];
     const body = lastResult.cuotas.map(c => [
         String(c.numero), c.mesAnio, c.valorCuota, c.interes,
         c.abonoCapital, c.cuotaManejo, c.totalCuota, c.saldoRestante
     ]);
 
     doc.autoTable({
-        head, body,
-        startY: y,
+        head, body, startY: y,
         margin: { left: 14, right: 14 },
         styles: {
             font: 'helvetica', fontSize: 8,
@@ -837,7 +896,12 @@ function descargarPDF() {
         doc.putTotalPages('{total_pages_count_string}');
     }
 
-    doc.save('Simulacion_Credito.pdf');
+    // Android WebView → enviar base64 a Java para guardar en Descargas
+    if (typeof Android !== 'undefined' && typeof Android.saveBase64 === 'function') {
+        Android.saveBase64(doc.output('datauristring'));
+    } else {
+        doc.save('Simulacion_Credito.pdf');
+    }
 }
 </script>
 </body>
