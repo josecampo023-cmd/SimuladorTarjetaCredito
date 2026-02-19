@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.SimuladorApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#1e3a8a</item>
+        <item name="colorPrimaryVariant">#1e40af</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:windowBackground">#0d0f14</item>
+        <item name="android:statusBarColor">#0d0f14</item>
+        <item name="android:navigationBarColor">#0d0f14</item>
+    </style>
+</resources>

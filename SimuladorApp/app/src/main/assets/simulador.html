@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Simulador de Tarjeta de Crédito</title>
+    <!-- jsPDF funciona offline desde CDN cacheado; si no hay internet, el PDF se deshabilita gracefully -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        :root {
+            --bg: #0d0f14;
+            --surface: #161922;
+            --surface2: #1e2230;
+            --border: rgba(255,255,255,0.07);
+            --accent: #3b82f6;
+            --accent2: #06b6d4;
+            --accent-glow: rgba(59,130,246,0.25);
+            --text: #e8eaf0;
+            --text-muted: #6b7280;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 10% 0%, rgba(59,130,246,0.08) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(6,182,212,0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 32px 16px 80px;
+        }
+
+        /* ── HEADER ── */
+        header { text-align: center; margin-bottom: 32px; }
+
+        .badge {
+            display: inline-block;
+            font-family: monospace;
+            font-size: 10px;
+            letter-spacing: 0.15em;
+            color: var(--accent2);
+            background: rgba(6,182,212,0.08);
+            border: 1px solid rgba(6,182,212,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+        }
+
+        h1 {
+            font-size: clamp(22px, 6vw, 34px);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            background: linear-gradient(135deg, #fff 30%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            margin-top: 8px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* ── CARD ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 24px 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent);
+        }
+
+        /* ── FORM ── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px 20px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group.full { grid-column: 1 / -1; }
+
+        label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        input, select {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-family: monospace;
+            font-size: 14px;
+            padding: 12px 14px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        input::placeholder { color: var(--text-muted); font-family: sans-serif; font-size: 12px; }
+
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+
+        /* ── SECTION SEPARATOR ── */
+        .section-title {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            color: var(--accent2);
+            text-transform: uppercase;
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── BUTTONS ── */
+        .actions { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 13px 22px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+            justify-content: center;
+            min-width: 140px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(59,130,246,0.3);
+        }
+
+        .btn-primary:active { opacity: 0.85; transform: scale(0.98); }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-outline:active { opacity: 0.7; }
+
+        /* spinner */
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+        .btn-primary.loading .spinner { display: inline-block; }
+        .btn-primary.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── ERROR ── */
+        .error-msg {
+            margin-top: 12px;
+            padding: 11px 14px;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 10px;
+            color: #fca5a5;
+            font-size: 13px;
+            display: none;
+        }
+        .error-msg.show { display: block; }
+
+        /* ── RESULTS ── */
+        #resultSection { margin-top: 28px; animation: fadeUp 0.35s ease; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Summary */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .summary-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 2px;
+        }
+
+        .summary-card.blue::after  { background: var(--accent); }
+        .summary-card.cyan::after  { background: var(--accent2); }
+        .summary-card.green::after { background: var(--success); }
+        .summary-card.amber::after { background: var(--warning); }
+
+        .summary-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .summary-value {
+            font-family: monospace;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text);
+            word-break: break-all;
+        }
+
+        /* Table */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            min-width: 560px;
+        }
+
+        thead th {
+            background: var(--surface2);
+            padding: 11px 12px;
+            text-align: right;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--border);
+        }
+
+        thead th:first-child { text-align: center; }
+        thead th:nth-child(2) { text-align: left; }
+
+        tbody tr { border-bottom: 1px solid var(--border); }
+        tbody tr:last-child { border-bottom: none; }
+
+        tbody td {
+            padding: 10px 12px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 11.5px;
+            color: #d1d5db;
+        }
+
+        tbody td:first-child { text-align: center; color: var(--text-muted); }
+        tbody td:nth-child(2) { text-align: left; font-family: sans-serif; font-size: 12px; color: var(--text); font-weight: 500; }
+        .td-total { color: var(--text) !important; font-weight: 700 !important; }
+
+        .results-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+
+        /* hint scroll */
+        .scroll-hint {
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+
+    <header>
+        <div class="badge">HERRAMIENTA FINANCIERA</div>
+        <h1>Simulador de Tarjeta de Crédito</h1>
+        <p class="subtitle">Proyecta el costo real de tus compras a cuotas</p>
+    </header>
+
+    <div class="card">
+        <div class="form-grid">
+
+            <div class="section-title">Datos de la compra</div>
+
+            <div class="form-group">
+                <label>💰 Valor de la compra (COP)</label>
+                <input type="text" id="valorCompra" placeholder="Ej: 9000000" inputmode="numeric">
+            </div>
+
+            <div class="form-group">
+                <label>📆 Número de cuotas</label>
+                <input type="number" id="cuotas" placeholder="Ej: 12" min="1" inputmode="numeric">
+            </div>
+
+            <div class="section-title">Tasas de interés</div>
+
+            <div class="form-group">
+                <label>📊 Tasa mensual pactada (%)</label>
+                <input type="text" id="tasaPactada" placeholder="Ej: 1.87" inputmode="decimal">
+            </div>
+
+            <div class="form-group">
+                <label>📈 Tasa efectiva anual (%)</label>
+                <input type="text" id="tasaEA" placeholder="Ej: 24.97" inputmode="decimal">
+            </div>
+
+            <div class="section-title">Cuota de manejo y fechas</div>
+
+            <div class="form-group">
+                <label>🏦 Cuota de manejo mensual (COP)</label>
+                <input type="text" id="cuotaManejo" placeholder="Ej: 18900 (opcional)" inputmode="numeric">
+            </div>
+
+            <div class="form-group">
+                <label>📅 Fecha de inicio</label>
+                <input type="date" id="fechaInicio">
+            </div>
+
+            <div class="form-group">
+                <label>🔁 Fecha de corte</label>
+                <input type="date" id="fechaCorte">
+            </div>
+
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" id="btnSimular" onclick="simularCredito()">
+                <div class="spinner"></div>
+                <span class="btn-text">⚡ Simular</span>
+            </button>
+            <button class="btn btn-outline" id="btnDescargar" onclick="descargarPDF()" style="display:none;">
+                📥 PDF
+            </button>
+        </div>
+
+        <div class="error-msg" id="mensajeError"></div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="resultSection" style="display:none;">
+        <div class="results-title">Detalle de la simulación</div>
+        <div class="summary-grid" id="summaryGrid"></div>
+        <div class="scroll-hint">← Desliza la tabla horizontalmente →</div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Mes / Año</th>
+                        <th>Cuota (cap+int)</th>
+                        <th>Interés</th>
+                        <th>Abono Capital</th>
+                        <th>Cuota Manejo</th>
+                        <th>Total a Pagar</th>
+                        <th>Saldo Restante</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+//  TODA LA LÓGICA DE CÁLCULO EN JS PURO
+//  (Equivalente al CalculadoraCreditoService.java)
+// ════════════════════════════════════════════════
+
+let lastResult = null;
+let lastParams = {};
+
+// ── Helpers de formato ───────────────────────────
+function formatCOP(value) {
+    return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(Math.round(value));
+}
+
+function parseColombianNumber(str) {
+    if (!str || str.trim() === '') return 0;
+    // Acepta: 9.000.000 / 9,000,000 / 9000000 / 9000000.50
+    let cleaned = str.replace(/\$/g, '').trim();
+    // Si tiene puntos como separador de miles (formato colombiano): 9.000.000
+    if ((cleaned.match(/\./g) || []).length > 1) {
+        cleaned = cleaned.replace(/\./g, '');
+    }
+    cleaned = cleaned.replace(/,/g, '.');
+    return parseFloat(cleaned);
+}
+
+// ── Utilidad de fechas ───────────────────────────
+function addMonths(dateStr, months) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const d = new Date(year, month - 1 + months, day);
+    // Evitar desbordamiento de día (ej: 31 enero + 1 mes = 28/29 feb)
+    if (d.getDate() !== day) d.setDate(0);
+    return d;
+}
+
+function diffDays(startStr, endStr) {
+    const [y1,m1,d1] = startStr.split('-').map(Number);
+    const [y2,m2,d2] = endStr.split('-').map(Number);
+    const a = new Date(y1, m1-1, d1);
+    const b = new Date(y2, m2-1, d2);
+    return Math.round((b - a) / (1000 * 60 * 60 * 24));
+}
+
+const MESES_ES = [
+    'ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
+    'JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'
+];
+
+// ── Motor de cálculo ─────────────────────────────
+function calcularCuotas(valorCompra, tasaMensual, cuotas, fechaInicio, fechaCorte, cuotaManejo) {
+    const diasPrimerPeriodo = diffDays(fechaInicio, fechaCorte);
+    const interesPrimerPeriodo = (valorCompra * tasaMensual) * (diasPrimerPeriodo / 30.0);
+
+    let saldo = valorCompra;
+    const abonoCapital = valorCompra / cuotas;
+    let totalInteres = 0;
+    let totalPagado = 0;
+    let totalManejo = 0;
+
+    const detalle = [];
+
+    for (let i = 1; i <= cuotas; i++) {
+        let interes;
+        if (cuotas === 1) {
+            interes = 0;
+        } else {
+            interes = (i === 1) ? interesPrimerPeriodo : saldo * tasaMensual;
+        }
+
+        const cuota = abonoCapital + interes;
+        const totalCuotaConManejo = cuota + cuotaManejo;
+        saldo -= abonoCapital;
+
+        totalInteres += interes;
+        totalPagado  += totalCuotaConManejo;
+        totalManejo  += cuotaManejo;
+
+        // Fecha: mes siguiente al corte + (i meses)
+        const fechaCuota = addMonths(fechaCorte, i);
+        const nombreMes  = MESES_ES[fechaCuota.getMonth()];
+        const anio        = fechaCuota.getFullYear();
+
+        detalle.push({
+            numero:       i,
+            mesAnio:      nombreMes + ' ' + anio,
+            valorCuota:   formatCOP(cuota),
+            interes:      formatCOP(interes),
+            abonoCapital: formatCOP(abonoCapital),
+            cuotaManejo:  formatCOP(cuotaManejo),
+            totalCuota:   formatCOP(totalCuotaConManejo),
+            saldoRestante:formatCOP(Math.max(saldo, 0))
+        });
+    }
+
+    return {
+        cuotas:          detalle,
+        totalPagado:     formatCOP(totalPagado),
+        totalIntereses:  formatCOP(totalInteres),
+        totalCuotaManejo:formatCOP(totalManejo)
+    };
+}
+
+// ── Validar inputs ───────────────────────────────
+function validar(campos) {
+    if (!campos.valorCompra || isNaN(campos.valorCompraNum) || campos.valorCompraNum <= 0)
+        return 'El valor de la compra es inválido.';
+    if (!campos.tasaPactada || isNaN(campos.tasaMensual) || campos.tasaMensual <= 0)
+        return 'La tasa mensual pactada es inválida.';
+    if (!campos.tasaEA || isNaN(campos.tasaEANum) || campos.tasaEANum <= 0)
+        return 'La tasa efectiva anual es inválida.';
+    if (!campos.cuotas || campos.cuotas <= 0)
+        return 'El número de cuotas debe ser mayor a 0.';
+    if (!campos.fechaInicio)
+        return 'La fecha de inicio es obligatoria.';
+    if (!campos.fechaCorte)
+        return 'La fecha de corte es obligatoria.';
+    if (campos.fechaCorte <= campos.fechaInicio)
+        return 'La fecha de corte debe ser posterior a la fecha de inicio.';
+    return null;
+}
+
+// ── Simular ──────────────────────────────────────
+function simularCredito() {
+    const errDiv = document.getElementById('mensajeError');
+    errDiv.classList.remove('show');
+    errDiv.textContent = '';
+
+    const campos = {
+        valorCompra:    document.getElementById('valorCompra').value.trim(),
+        tasaPactada:    document.getElementById('tasaPactada').value.trim(),
+        tasaEA:         document.getElementById('tasaEA').value.trim(),
+        cuotas:         parseInt(document.getElementById('cuotas').value),
+        fechaInicio:    document.getElementById('fechaInicio').value,
+        fechaCorte:     document.getElementById('fechaCorte').value,
+        cuotaManejo:    document.getElementById('cuotaManejo').value.trim(),
+    };
+
+    campos.valorCompraNum = parseColombianNumber(campos.valorCompra);
+    campos.tasaMensual    = parseFloat(campos.tasaPactada.replace(',', '.')) / 100;
+    campos.tasaEANum      = parseFloat(campos.tasaEA.replace(',', '.'));
+
+    const error = validar(campos);
+    if (error) {
+        errDiv.textContent = '❌ ' + error;
+        errDiv.classList.add('show');
+        return;
+    }
+
+    const cuotaManejo = campos.cuotaManejo ? parseColombianNumber(campos.cuotaManejo) : 0;
+
+    lastParams = {
+        valorCompra: formatCOP(campos.valorCompraNum),
+        tasaMensual: campos.tasaPactada + '%',
+        tasaEA:      campos.tasaEA + '%',
+        cuotas:      campos.cuotas,
+        cuotaManejo: formatCOP(cuotaManejo),
+        fechaInicio: campos.fechaInicio,
+        fechaCorte:  campos.fechaCorte,
+    };
+
+    const btn = document.getElementById('btnSimular');
+    btn.classList.add('loading');
+
+    // setTimeout para que el spinner se vea antes del cálculo
+    setTimeout(() => {
+        try {
+            lastResult = calcularCuotas(
+                campos.valorCompraNum,
+                campos.tasaMensual,
+                campos.cuotas,
+                campos.fechaInicio,
+                campos.fechaCorte,
+                cuotaManejo
+            );
+            mostrarResultado(lastResult);
+        } catch (e) {
+            errDiv.textContent = '❌ Error en el cálculo: ' + e.message;
+            errDiv.classList.add('show');
+        } finally {
+            btn.classList.remove('loading');
+        }
+    }, 50);
+}
+
+// ── Mostrar resultados ───────────────────────────
+function mostrarResultado(data) {
+    document.getElementById('summaryGrid').innerHTML = `
+        <div class="summary-card blue">
+            <div class="summary-label">Total pagado</div>
+            <div class="summary-value">${data.totalPagado}</div>
+        </div>
+        <div class="summary-card cyan">
+            <div class="summary-label">Total intereses</div>
+            <div class="summary-value">${data.totalIntereses}</div>
+        </div>
+        <div class="summary-card amber">
+            <div class="summary-label">Total cuota manejo</div>
+            <div class="summary-value">${data.totalCuotaManejo}</div>
+        </div>
+        <div class="summary-card green">
+            <div class="summary-label">Número de cuotas</div>
+            <div class="summary-value">${data.cuotas.length}</div>
+        </div>
+    `;
+
+    const tbody = document.getElementById('tablaBody');
+    tbody.innerHTML = '';
+    data.cuotas.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${c.numero}</td>
+            <td>${c.mesAnio}</td>
+            <td>${c.valorCuota}</td>
+            <td>${c.interes}</td>
+            <td>${c.abonoCapital}</td>
+            <td>${c.cuotaManejo}</td>
+            <td class="td-total">${c.totalCuota}</td>
+            <td>${c.saldoRestante}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('resultSection').style.display = 'block';
+    document.getElementById('btnDescargar').style.display = 'inline-flex';
+    document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── PDF con jsPDF ────────────────────────────────
+function descargarPDF() {
+    if (!lastResult || typeof window.jspdf === 'undefined') {
+        alert('El PDF no está disponible en este momento. Verifica tu conexión a internet para cargar la librería de PDF.');
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    const W = doc.internal.pageSize.getWidth();
+    const azul      = [30,  58, 138];
+    const azulClaro = [219, 234, 254];
+    const gris      = [100, 116, 139];
+    const grisClaro = [248, 250, 252];
+    const blanco    = [255, 255, 255];
+    const negro     = [15,  23,  42];
+    const verde     = [6,   78,  59];
+    const ambar     = [120, 53,  15];
+    const cyan      = [14, 116, 144];
+
+    const fecha = new Date().toLocaleDateString('es-CO', {
+        year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+    // Encabezado
+    doc.setFillColor(...azul);
+    doc.rect(0, 0, W, 22, 'F');
+    doc.setTextColor(...blanco);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.text('Simulador de Tarjeta de Credito', 14, 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(180, 200, 255);
+    doc.text('Proyeccion de pagos a cuotas — Tabla de amortizacion', 14, 17);
+    doc.setFontSize(8);
+    doc.text('Generado el ' + fecha, W - 14, 13, { align: 'right' });
+
+    let y = 30;
+
+    // Parámetros
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...gris);
+    doc.text('PARAMETROS DE LA SIMULACION', 14, y);
+    y += 4;
+
+    const params = [
+        ['Valor de la compra',     lastParams.valorCompra],
+        ['Tasa mensual pactada',   lastParams.tasaMensual],
+        ['Tasa EA facturada',      lastParams.tasaEA],
+        ['Numero de cuotas',       String(lastParams.cuotas)],
+        ['Cuota de manejo mensual',lastParams.cuotaManejo],
+        ['Fecha de inicio',        lastParams.fechaInicio],
+        ['Fecha de corte',         lastParams.fechaCorte],
+    ];
+
+    const boxW = (W - 28) / 4;
+    const boxH = 13;
+
+    params.forEach(([label, value], i) => {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        const bx = 14 + col * (boxW + 2);
+        const by = y + row * (boxH + 2);
+
+        doc.setFillColor(...grisClaro);
+        doc.roundedRect(bx, by, boxW, boxH, 2, 2, 'F');
+        doc.setFillColor(...azul);
+        doc.rect(bx, by, 2, boxH, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...gris);
+        doc.text(label.toUpperCase(), bx + 5, by + 4.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...negro);
+        doc.text(String(value), bx + 5, by + 10);
+    });
+
+    y += Math.ceil(params.length / 4) * (boxH + 2) + 6;
+
+    // Resumen
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...gris);
+    doc.text('RESUMEN', 14, y);
+    y += 4;
+
+    const summary = [
+        { label: 'TOTAL PAGADO',        value: lastResult.totalPagado,       color: azul  },
+        { label: 'TOTAL INTERESES',     value: lastResult.totalIntereses,    color: cyan  },
+        { label: 'TOTAL CUOTA MANEJO',  value: lastResult.totalCuotaManejo,  color: ambar },
+        { label: 'N. CUOTAS',           value: String(lastResult.cuotas.length), color: verde },
+    ];
+
+    const cardW = (W - 28) / 4;
+    const cardH = 16;
+
+    summary.forEach(({ label, value, color }, i) => {
+        const cx = 14 + i * (cardW + 2);
+        doc.setFillColor(...color);
+        doc.roundedRect(cx, y, cardW, cardH, 2, 2, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(200, 210, 240);
+        doc.text(label, cx + 5, y + 5.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(...blanco);
+        doc.text(value, cx + 5, y + 12.5);
+    });
+
+    y += cardH + 8;
+
+    // Tabla
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...gris);
+    doc.text('TABLA DE AMORTIZACION', 14, y);
+    y += 3;
+
+    const head = [['#', 'Mes / Año', 'Cuota (cap+int)', 'Interes', 'Abono Capital', 'Cuota Manejo', 'Total a Pagar', 'Saldo Restante']];
+    const body = lastResult.cuotas.map(c => [
+        String(c.numero), c.mesAnio, c.valorCuota, c.interes,
+        c.abonoCapital, c.cuotaManejo, c.totalCuota, c.saldoRestante
+    ]);
+
+    doc.autoTable({
+        head, body,
+        startY: y,
+        margin: { left: 14, right: 14 },
+        styles: {
+            font: 'helvetica', fontSize: 8,
+            cellPadding: { top: 3, right: 5, bottom: 3, left: 5 },
+            textColor: negro, lineColor: [226, 232, 240], lineWidth: 0.2,
+        },
+        headStyles: {
+            fillColor: azul, textColor: blanco,
+            fontStyle: 'bold', fontSize: 7.5, halign: 'center',
+        },
+        columnStyles: {
+            0: { halign: 'center', cellWidth: 10 },
+            1: { halign: 'left',   cellWidth: 30, fontStyle: 'bold' },
+            2: { halign: 'right' }, 3: { halign: 'right' },
+            4: { halign: 'right' }, 5: { halign: 'right' },
+            6: { halign: 'right', fontStyle: 'bold', textColor: azul },
+            7: { halign: 'right' },
+        },
+        alternateRowStyles: { fillColor: grisClaro },
+        didParseCell(data) {
+            if (data.row.index === body.length - 1) {
+                data.cell.styles.fillColor = azulClaro;
+                data.cell.styles.fontStyle = 'bold';
+            }
+        },
+        didDrawPage() {
+            const pg = doc.internal.getCurrentPageInfo().pageNumber;
+            const H  = doc.internal.pageSize.getHeight();
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(...gris);
+            doc.text('Simulador de Tarjeta de Credito  —  Pagina ' + pg, 14, H - 6);
+            doc.text('Valores de caracter informativo.', W - 14, H - 6, { align: 'right' });
+            doc.setDrawColor(...azulClaro);
+            doc.setLineWidth(0.4);
+            doc.line(14, H - 10, W - 14, H - 10);
+        }
+    });
+
+    if (typeof doc.putTotalPages === 'function') {
+        doc.putTotalPages('{total_pages_count_string}');
+    }
+
+    doc.save('Simulacion_Credito.pdf');
+}
+</script>
+</body>
+</html>
