@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Simulador de Tarjeta de Crédito</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        /* ══════════════════════════════════════════
+           VARIABLES — MODO OSCURO (default)
+        ══════════════════════════════════════════ */
+        :root {
+            --bg:          #0d0f14;
+            --surface:     #161922;
+            --surface2:    #1e2230;
+            --border:      rgba(255,255,255,0.07);
+            --accent:      #3b82f6;
+            --accent2:     #06b6d4;
+            --accent-glow: rgba(59,130,246,0.25);
+            --text:        #e8eaf0;
+            --text-muted:  #6b7280;
+            --success:     #10b981;
+            --warning:     #f59e0b;
+            --shadow:      rgba(0,0,0,0.4);
+        }
+
+        /* ══════════════════════════════════════════
+           VARIABLES — MODO CLARO
+        ══════════════════════════════════════════ */
+        [data-theme="light"] {
+            --bg:          #f0f4f8;
+            --surface:     #ffffff;
+            --surface2:    #f1f5f9;
+            --border:      rgba(0,0,0,0.09);
+            --accent:      #1d4ed8;
+            --accent2:     #0891b2;
+            --accent-glow: rgba(29,78,216,0.15);
+            --text:        #0f172a;
+            --text-muted:  #64748b;
+            --success:     #059669;
+            --warning:     #d97706;
+            --shadow:      rgba(0,0,0,0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            /* safe area para notch / Dynamic Island de iPhone */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 10% 0%, rgba(59,130,246,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 90% 100%, rgba(6,182,212,0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 24px 16px 80px;
+        }
+
+        /* ── TOGGLE MODO ── */
+        .theme-toggle {
+            position: fixed;
+            top: calc(16px + env(safe-area-inset-top));
+            right: 16px;
+            z-index: 100;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 12px var(--shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.25s;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .theme-toggle:active { transform: scale(0.88); }
+
+        /* ── HEADER ── */
+        header {
+            text-align: center;
+            margin-bottom: 26px;
+            padding-top: 12px;
+        }
+
+        .badge {
+            display: inline-block;
+            font-family: monospace;
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            color: var(--accent2);
+            background: rgba(6,182,212,0.08);
+            border: 1px solid rgba(6,182,212,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            font-size: clamp(20px, 5.5vw, 30px);
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            line-height: 1.2;
+            color: var(--text);
+        }
+
+        [data-theme="dark"] h1 {
+            background: linear-gradient(135deg, #fff 30%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            margin-top: 6px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* ── CARD ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 22px 18px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 24px var(--shadow);
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(59,130,246,0.4), transparent);
+        }
+
+        /* ── FORM ── */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px 16px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group.full { grid-column: 1 / -1; }
+
+        label {
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        input {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 14px;
+            padding: 12px 13px;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.3s;
+            width: 100%;
+            outline: none;
+            -webkit-appearance: none;
+            font-family: monospace;
+        }
+
+        input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        input::placeholder { color: var(--text-muted); font-family: -apple-system, sans-serif; font-size: 12px; }
+
+        /* ── SECTION TITLE ── */
+        .section-title {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            color: var(--accent2);
+            text-transform: uppercase;
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 4px;
+        }
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── BOTONES ── */
+        .actions { display: flex; gap: 10px; margin-top: 20px; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 14px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex: 1;
+            font-family: -apple-system, sans-serif;
+            -webkit-appearance: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(59,130,246,0.35);
+        }
+        .btn-primary:active { opacity: 0.8; transform: scale(0.96); }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-outline:active { opacity: 0.65; }
+
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.25);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+        .btn-primary.loading .spinner { display: inline-block; }
+        .btn-primary.loading .btn-text { display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── ERROR ── */
+        .error-msg {
+            margin-top: 12px;
+            padding: 11px 14px;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 10px;
+            color: #ef4444;
+            font-size: 13px;
+            display: none;
+        }
+        [data-theme="dark"] .error-msg { color: #fca5a5; }
+        .error-msg.show { display: block; }
+
+        /* ── RESULTADOS ── */
+        #resultSection { margin-top: 22px; animation: fadeUp 0.35s ease; }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .results-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            color: var(--text);
+        }
+
+        /* Summary cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .summary-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 13px 15px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 10px var(--shadow);
+            transition: background 0.3s;
+        }
+
+        .summary-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 2.5px;
+        }
+        .summary-card.blue::after  { background: var(--accent); }
+        .summary-card.cyan::after  { background: var(--accent2); }
+        .summary-card.green::after { background: var(--success); }
+        .summary-card.amber::after { background: var(--warning); }
+
+        .summary-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .summary-value {
+            font-family: monospace;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            word-break: break-all;
+        }
+
+        /* Tabla */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            -webkit-overflow-scrolling: touch;
+            box-shadow: 0 2px 10px var(--shadow);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11.5px;
+            min-width: 540px;
+        }
+
+        thead th {
+            background: var(--surface2);
+            padding: 10px 11px;
+            text-align: right;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--border);
+        }
+        thead th:first-child { text-align: center; }
+        thead th:nth-child(2) { text-align: left; }
+
+        tbody tr { border-bottom: 1px solid var(--border); }
+        tbody tr:last-child { border-bottom: none; }
+
+        tbody td {
+            padding: 9px 11px;
+            text-align: right;
+            font-family: monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        tbody td:first-child { text-align: center; }
+        tbody td:nth-child(2) {
+            text-align: left;
+            font-family: -apple-system, sans-serif;
+            font-size: 11.5px;
+            color: var(--text);
+            font-weight: 500;
+        }
+        .td-total { color: var(--accent) !important; font-weight: 700 !important; }
+
+        .scroll-hint {
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 7px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+
+<button class="theme-toggle" id="themeToggle" onclick="toggleTheme()">☀️</button>
+
+<div class="wrapper">
+
+    <header>
+        <div class="badge">HERRAMIENTA FINANCIERA</div>
+        <h1>Simulador de Tarjeta de Crédito</h1>
+        <p class="subtitle">Proyecta el costo real de tus compras a cuotas</p>
+    </header>
+
+    <div class="card">
+        <div class="form-grid">
+
+            <div class="section-title">Datos de la compra</div>
+
+            <div class="form-group">
+                <label>💰 Valor de la compra (COP)</label>
+                <input type="text" id="valorCompra" placeholder="Ej: 9000000" inputmode="numeric">
+            </div>
+
+            <div class="form-group">
+                <label>📆 Número de cuotas</label>
+                <input type="number" id="cuotas" placeholder="Ej: 12" min="1" inputmode="numeric">
+            </div>
+
+            <div class="section-title">Tasas de interés</div>
+
+            <div class="form-group">
+                <label>📊 Tasa mensual pactada (%)</label>
+                <input type="text" id="tasaPactada" placeholder="Ej: 1.87" inputmode="decimal">
+            </div>
+
+            <div class="form-group">
+                <label>📈 Tasa efectiva anual (%)</label>
+                <input type="text" id="tasaEA" placeholder="Ej: 24.97" inputmode="decimal">
+            </div>
+
+            <div class="section-title">Cuota de manejo y fechas</div>
+
+            <div class="form-group">
+                <label>🏦 Cuota de manejo mensual (COP)</label>
+                <input type="text" id="cuotaManejo" placeholder="Ej: 18900 (opcional)" inputmode="numeric">
+            </div>
+
+            <div class="form-group">
+                <label>📅 Fecha de inicio</label>
+                <input type="date" id="fechaInicio">
+            </div>
+
+            <div class="form-group">
+                <label>🔁 Fecha de corte</label>
+                <input type="date" id="fechaCorte">
+            </div>
+
+        </div>
+
+        <div class="actions">
+            <button class="btn btn-primary" id="btnSimular" onclick="simularCredito()">
+                <div class="spinner"></div>
+                <span class="btn-text">⚡ Simular</span>
+            </button>
+            <button class="btn btn-outline" id="btnDescargar" onclick="descargarPDF()" style="display:none;">
+                📥 PDF
+            </button>
+        </div>
+
+        <div class="error-msg" id="mensajeError"></div>
+    </div>
+
+    <div id="resultSection" style="display:none;">
+        <div class="results-title">Detalle de la simulación</div>
+        <div class="summary-grid" id="summaryGrid"></div>
+        <p class="scroll-hint">← Desliza la tabla →</p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Mes / Año</th>
+                        <th>Cuota (cap+int)</th>
+                        <th>Interés</th>
+                        <th>Abono Capital</th>
+                        <th>Cuota Manejo</th>
+                        <th>Total a Pagar</th>
+                        <th>Saldo Restante</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+//  MODO CLARO / OSCURO
+// ════════════════════════════════════════════════
+const html = document.documentElement;
+const toggleBtn = document.getElementById('themeToggle');
+
+function toggleTheme() {
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    const next = isDark ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    toggleBtn.textContent = isDark ? '🌙' : '☀️';
+    try { localStorage.setItem('theme', next); } catch(e) {}
+}
+
+// Restaurar preferencia guardada
+(function() {
+    let saved = null;
+    try { saved = localStorage.getItem('theme'); } catch(e) {}
+    if (saved) {
+        html.setAttribute('data-theme', saved);
+        toggleBtn.textContent = saved === 'dark' ? '☀️' : '🌙';
+    }
+})();
+
+// ════════════════════════════════════════════════
+//  CÁLCULO (sin backend)
+// ════════════════════════════════════════════════
+let lastResult = null;
+let lastParams = {};
+
+function formatCOP(v) {
+    return new Intl.NumberFormat('es-CO', {
+        style: 'currency', currency: 'COP',
+        minimumFractionDigits: 0, maximumFractionDigits: 0
+    }).format(Math.round(v));
+}
+
+function parseNum(str) {
+    if (!str || !str.trim()) return 0;
+    let s = str.replace(/\$/g, '').trim();
+    if ((s.match(/\./g) || []).length > 1) s = s.replace(/\./g, '');
+    return parseFloat(s.replace(/,/g, '.'));
+}
+
+const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO',
+               'JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
+function addMonths(dateStr, months) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1 + months, d);
+    if (dt.getDate() !== d) dt.setDate(0);
+    return dt;
+}
+
+function diffDays(a, b) {
+    return Math.round((new Date(b) - new Date(a)) / 86400000);
+}
+
+function calcularCuotas(valorCompra, tasaMensual, numCuotas, fechaInicio, fechaCorte, cuotaManejo) {
+    const diasPrimero    = diffDays(fechaInicio, fechaCorte);
+    const interesPrimero = (valorCompra * tasaMensual) * (diasPrimero / 30.0);
+
+    let saldo = valorCompra;
+    const abonoCapital = valorCompra / numCuotas;
+    let totalInteres = 0, totalPagado = 0, totalManejo = 0;
+    const detalle = [];
+
+    for (let i = 1; i <= numCuotas; i++) {
+        const interes = numCuotas === 1 ? 0 : (i === 1 ? interesPrimero : saldo * tasaMensual);
+        const cuota   = abonoCapital + interes;
+        const total   = cuota + cuotaManejo;
+        saldo        -= abonoCapital;
+
+        totalInteres += interes;
+        totalPagado  += total;
+        totalManejo  += cuotaManejo;
+
+        const fc = addMonths(fechaCorte, i);
+        detalle.push({
+            numero:        i,
+            mesAnio:       MESES[fc.getMonth()] + ' ' + fc.getFullYear(),
+            valorCuota:    formatCOP(cuota),
+            interes:       formatCOP(interes),
+            abonoCapital:  formatCOP(abonoCapital),
+            cuotaManejo:   formatCOP(cuotaManejo),
+            totalCuota:    formatCOP(total),
+            saldoRestante: formatCOP(Math.max(saldo, 0))
+        });
+    }
+
+    return {
+        cuotas:           detalle,
+        totalPagado:      formatCOP(totalPagado),
+        totalIntereses:   formatCOP(totalInteres),
+        totalCuotaManejo: formatCOP(totalManejo)
+    };
+}
+
+function simularCredito() {
+    const errDiv = document.getElementById('mensajeError');
+    errDiv.classList.remove('show');
+
+    const valorCompraStr = document.getElementById('valorCompra').value.trim();
+    const tasaPactadaStr = document.getElementById('tasaPactada').value.trim();
+    const tasaEAStr      = document.getElementById('tasaEA').value.trim();
+    const cuotasVal      = parseInt(document.getElementById('cuotas').value);
+    const fechaInicio    = document.getElementById('fechaInicio').value;
+    const fechaCorte     = document.getElementById('fechaCorte').value;
+    const cuotaManejoStr = document.getElementById('cuotaManejo').value.trim();
+
+    const valorCompra = parseNum(valorCompraStr);
+    const tasaMensual = parseFloat(tasaPactadaStr.replace(',', '.')) / 100;
+    const tasaEA      = parseFloat(tasaEAStr.replace(',', '.'));
+    const cuotaManejo = parseNum(cuotaManejoStr);
+
+    if (!valorCompraStr || isNaN(valorCompra) || valorCompra <= 0)
+        return mostrarError('El valor de la compra es inválido.');
+    if (!tasaPactadaStr || isNaN(tasaMensual) || tasaMensual <= 0)
+        return mostrarError('La tasa mensual pactada es inválida.');
+    if (!tasaEAStr || isNaN(tasaEA) || tasaEA <= 0)
+        return mostrarError('La tasa efectiva anual es inválida.');
+    if (!cuotasVal || cuotasVal <= 0)
+        return mostrarError('El número de cuotas debe ser mayor a 0.');
+    if (!fechaInicio)
+        return mostrarError('La fecha de inicio es obligatoria.');
+    if (!fechaCorte)
+        return mostrarError('La fecha de corte es obligatoria.');
+    if (fechaCorte <= fechaInicio)
+        return mostrarError('La fecha de corte debe ser posterior a la de inicio.');
+
+    lastParams = {
+        valorCompra: formatCOP(valorCompra),
+        tasaMensual: tasaPactadaStr + '%',
+        tasaEA:      tasaEAStr + '%',
+        cuotas:      cuotasVal,
+        cuotaManejo: formatCOP(cuotaManejo),
+        fechaInicio,
+        fechaCorte
+    };
+
+    const btn = document.getElementById('btnSimular');
+    btn.classList.add('loading');
+
+    setTimeout(() => {
+        try {
+            lastResult = calcularCuotas(valorCompra, tasaMensual, cuotasVal, fechaInicio, fechaCorte, cuotaManejo);
+            mostrarResultado(lastResult);
+        } catch(e) {
+            mostrarError('Error en el cálculo: ' + e.message);
+        } finally {
+            btn.classList.remove('loading');
+        }
+    }, 50);
+}
+
+function mostrarError(msg) {
+    const errDiv = document.getElementById('mensajeError');
+    errDiv.textContent = '❌ ' + msg;
+    errDiv.classList.add('show');
+}
+
+function mostrarResultado(data) {
+    document.getElementById('summaryGrid').innerHTML = `
+        <div class="summary-card blue">
+            <div class="summary-label">Total pagado</div>
+            <div class="summary-value">${data.totalPagado}</div>
+        </div>
+        <div class="summary-card cyan">
+            <div class="summary-label">Total intereses</div>
+            <div class="summary-value">${data.totalIntereses}</div>
+        </div>
+        <div class="summary-card amber">
+            <div class="summary-label">Total cuota manejo</div>
+            <div class="summary-value">${data.totalCuotaManejo}</div>
+        </div>
+        <div class="summary-card green">
+            <div class="summary-label">N.° cuotas</div>
+            <div class="summary-value">${data.cuotas.length}</div>
+        </div>
+    `;
+
+    const tbody = document.getElementById('tablaBody');
+    tbody.innerHTML = '';
+    data.cuotas.forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${c.numero}</td>
+            <td>${c.mesAnio}</td>
+            <td>${c.valorCuota}</td>
+            <td>${c.interes}</td>
+            <td>${c.abonoCapital}</td>
+            <td>${c.cuotaManejo}</td>
+            <td class="td-total">${c.totalCuota}</td>
+            <td>${c.saldoRestante}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('resultSection').style.display = 'block';
+    document.getElementById('btnDescargar').style.display = 'inline-flex';
+    document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ════════════════════════════════════════════════
+//  PDF — envía base64 a Swift via WKScriptMessage
+// ════════════════════════════════════════════════
+function descargarPDF() {
+    if (!lastResult) return;
+    if (typeof window.jspdf === 'undefined') {
+        alert('La librería PDF no está cargada. Verifica tu conexión a internet.');
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    const W         = doc.internal.pageSize.getWidth();
+    const azul      = [30,  58, 138];
+    const azulClaro = [219, 234, 254];
+    const gris      = [100, 116, 139];
+    const grisClaro = [248, 250, 252];
+    const blanco    = [255, 255, 255];
+    const negro     = [15,  23,  42];
+    const verde     = [6,   78,  59];
+    const ambar     = [120, 53,  15];
+    const cyan      = [14, 116, 144];
+
+    const fecha = new Date().toLocaleDateString('es-CO', {
+        year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+    // Encabezado
+    doc.setFillColor(...azul);
+    doc.rect(0, 0, W, 22, 'F');
+    doc.setTextColor(...blanco);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(15);
+    doc.text('Simulador de Tarjeta de Credito', 14, 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(180, 200, 255);
+    doc.text('Proyeccion de pagos a cuotas — Tabla de amortizacion', 14, 17);
+    doc.setFontSize(8);
+    doc.text('Generado el ' + fecha, W - 14, 13, { align: 'right' });
+
+    let y = 30;
+
+    // Parámetros
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...gris);
+    doc.text('PARAMETROS DE LA SIMULACION', 14, y);
+    y += 4;
+
+    const params = [
+        ['Valor de la compra',      lastParams.valorCompra],
+        ['Tasa mensual pactada',    lastParams.tasaMensual],
+        ['Tasa EA facturada',       lastParams.tasaEA],
+        ['Numero de cuotas',        String(lastParams.cuotas)],
+        ['Cuota de manejo mensual', lastParams.cuotaManejo],
+        ['Fecha de inicio',         lastParams.fechaInicio],
+        ['Fecha de corte',          lastParams.fechaCorte],
+    ];
+
+    const boxW = (W - 28) / 4;
+    const boxH = 13;
+
+    params.forEach(([label, value], i) => {
+        const col = i % 4, row = Math.floor(i / 4);
+        const bx = 14 + col * (boxW + 2);
+        const by = y  + row * (boxH + 2);
+        doc.setFillColor(...grisClaro);
+        doc.roundedRect(bx, by, boxW, boxH, 2, 2, 'F');
+        doc.setFillColor(...azul);
+        doc.rect(bx, by, 2, boxH, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...gris);
+        doc.text(label.toUpperCase(), bx + 5, by + 4.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(...negro);
+        doc.text(String(value), bx + 5, by + 10);
+    });
+
+    y += Math.ceil(params.length / 4) * (boxH + 2) + 6;
+
+    // Resumen
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...gris);
+    doc.text('RESUMEN', 14, y);
+    y += 4;
+
+    const summary = [
+        { label: 'TOTAL PAGADO',       value: lastResult.totalPagado,        color: azul  },
+        { label: 'TOTAL INTERESES',    value: lastResult.totalIntereses,     color: cyan  },
+        { label: 'TOTAL CUOTA MANEJO', value: lastResult.totalCuotaManejo,   color: ambar },
+        { label: 'N. CUOTAS',          value: String(lastResult.cuotas.length), color: verde },
+    ];
+
+    const cardW = (W - 28) / 4, cardH = 16;
+    summary.forEach(({ label, value, color }, i) => {
+        const cx = 14 + i * (cardW + 2);
+        doc.setFillColor(...color);
+        doc.roundedRect(cx, y, cardW, cardH, 2, 2, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(200, 210, 240);
+        doc.text(label, cx + 5, y + 5.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(...blanco);
+        doc.text(value, cx + 5, y + 12.5);
+    });
+
+    y += cardH + 8;
+
+    // Tabla
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...gris);
+    doc.text('TABLA DE AMORTIZACION', 14, y);
+    y += 3;
+
+    const head = [['#','Mes / Año','Cuota (cap+int)','Interes','Abono Capital','Cuota Manejo','Total a Pagar','Saldo Restante']];
+    const body = lastResult.cuotas.map(c => [
+        String(c.numero), c.mesAnio, c.valorCuota, c.interes,
+        c.abonoCapital, c.cuotaManejo, c.totalCuota, c.saldoRestante
+    ]);
+
+    doc.autoTable({
+        head, body, startY: y,
+        margin: { left: 14, right: 14 },
+        styles: {
+            font: 'helvetica', fontSize: 8,
+            cellPadding: { top: 3, right: 5, bottom: 3, left: 5 },
+            textColor: negro, lineColor: [226, 232, 240], lineWidth: 0.2,
+        },
+        headStyles: { fillColor: azul, textColor: blanco, fontStyle: 'bold', fontSize: 7.5, halign: 'center' },
+        columnStyles: {
+            0: { halign: 'center', cellWidth: 10 },
+            1: { halign: 'left',   cellWidth: 30, fontStyle: 'bold' },
+            2: { halign: 'right' }, 3: { halign: 'right' },
+            4: { halign: 'right' }, 5: { halign: 'right' },
+            6: { halign: 'right', fontStyle: 'bold', textColor: azul },
+            7: { halign: 'right' },
+        },
+        alternateRowStyles: { fillColor: grisClaro },
+        didParseCell(data) {
+            if (data.row.index === body.length - 1) {
+                data.cell.styles.fillColor = azulClaro;
+                data.cell.styles.fontStyle = 'bold';
+            }
+        },
+        didDrawPage() {
+            const pg = doc.internal.getCurrentPageInfo().pageNumber;
+            const H  = doc.internal.pageSize.getHeight();
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(...gris);
+            doc.text('Simulador de Tarjeta de Credito  —  Pagina ' + pg, 14, H - 6);
+            doc.text('Valores de caracter informativo.', W - 14, H - 6, { align: 'right' });
+            doc.setDrawColor(...azulClaro);
+            doc.setLineWidth(0.4);
+            doc.line(14, H - 10, W - 14, H - 10);
+        }
+    });
+
+    if (typeof doc.putTotalPages === 'function') {
+        doc.putTotalPages('{total_pages_count_string}');
+    }
+
+    // ── Enviar a Swift (iOS) via WKScriptMessageHandler ──
+    const dataURI = doc.output('datauristring');
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.saveBase64) {
+        window.webkit.messageHandlers.saveBase64.postMessage(dataURI);
+    } else {
+        // Fallback: navegador de escritorio
+        doc.save('Simulacion_Credito.pdf');
+    }
+}
+</script>
+</body>
+</html>
